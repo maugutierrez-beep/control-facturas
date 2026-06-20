@@ -1,0 +1,98 @@
+[
+  {
+    "id": "bill-1",
+    "name": "EPM - Energía y Gas",
+    "category": "servicios",
+    "amount": 145200,
+    "dueDate": "2026-06-25",
+    "status": "pendiente",
+    "reference": "9876543-12",
+    "paidDate": null,
+    "paymentCode": null,
+    "notes": "Pagar antes de la fecha límite para evitar recargo de reconexión."
+  },
+  {
+    "id": "bill-2",
+    "name": "Claro - Internet y TV",
+    "category": "servicios",
+    "amount": 154900,
+    "dueDate": "2026-06-15",
+    "status": "pagado",
+    "reference": "32109876",
+    "paidDate": "2026-06-14",
+    "paymentCode": "TRX-77631",
+    "notes": "Débito automático falló, pagado por PSE."
+  },
+  {
+    "id": "bill-3",
+    "name": "Arriendo Apto 502",
+    "category": "arriendos",
+    "amount": 1800000,
+    "dueDate": "2026-07-05",
+    "status": "pendiente",
+    "reference": "Cuenta Ahorros Bancolombia #123456",
+    "paidDate": null,
+    "paymentCode": null,
+    "notes": "Transferir directo al arrendador y enviar comprobante por WhatsApp."
+  },
+  {
+    "id": "bill-4",
+    "name": "Administración Edificio Roble",
+    "category": "administraciones",
+    "amount": 250000,
+    "dueDate": "2026-07-10",
+    "status": "pendiente",
+    "reference": "Apto 502",
+    "paidDate": null,
+    "paymentCode": null,
+    "notes": "Tiene descuento del 10% si se paga antes del 5."
+  },
+  {
+    "id": "bill-5",
+    "name": "Banco de Bogotá - Tarjeta Crédito",
+    "category": "creditos",
+    "amount": 420000,
+    "dueDate": "2026-06-22",
+    "status": "pendiente",
+    "reference": "Tarj. Visa *4321",
+    "paidDate": null,
+    "paymentCode": null,
+    "notes": "Pago mínimo de la tarjeta. Cupo para compras."
+  },
+  {
+    "id": "bill-6",
+    "name": "Sufi - Crédito Vehículo",
+    "category": "creditos",
+    "amount": 680000,
+    "dueDate": "2026-06-10",
+    "status": "pagado",
+    "reference": "Obligación #98721",
+    "paidDate": "2026-06-09",
+    "paymentCode": "PSE-883210",
+    "notes": "Cuota 12 de 36."
+  },
+  {
+    "id": "bill-7",
+    "name": "Acueducto Triple A",
+    "category": "servicios",
+    "amount": 82400,
+    "dueDate": "2026-06-28",
+    "status": "pendiente",
+    "reference": "Poliza 765432",
+    "paidDate": null,
+    "paymentCode": null,
+    "notes": "Llegó más barata que el mes pasado."
+  },
+  {
+    "id": "bill-claro-3116207181",
+    "name": "Claro Móvil - 3116207181",
+    "category": "servicios",
+    "amount": 52185,
+    "dueDate": "2026-06-22",
+    "status": "pendiente",
+    "reference": "5753327622",
+    "paidDate": null,
+    "paymentCode": null,
+    "notes": "Factura Claro Móvil importada desde el chat. Cliente: SIERRALUNA GROUP SAS. Factura E6069983387. Suspensión desde: 24-Jun-2026."
+  }
+]

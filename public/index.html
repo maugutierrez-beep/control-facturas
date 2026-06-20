@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ControlFact - Dashboard de Gastos y Facturas</title>
+  <!-- Google Fonts - Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Estilos Personalizados -->
+  <link rel="stylesheet" href="style.css">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <!-- Contenedor Principal de la Aplicación -->
+  <div class="app-container">
+    
+    <!-- Barra Lateral (Sidebar) -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <i class="fa-solid fa-file-invoice-dollar logo-icon"></i>
+        <span class="logo-text">Control<span>Fact</span></span>
+      </div>
+      <nav class="sidebar-menu">
+        <a href="#dashboard" class="menu-item active" id="nav-dashboard">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="#bills" class="menu-item" id="nav-bills">
+          <i class="fa-solid fa-list-check"></i>
+          <span>Facturas</span>
+        </a>
+        <a href="#import" class="menu-item" id="nav-import">
+          <i class="fa-solid fa-file-import"></i>
+          <span>Importar</span>
+        </a>
+        <a href="#settings" class="menu-item" id="nav-settings">
+          <i class="fa-solid fa-gears"></i>
+          <span>Configuración</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <p class="app-version">v1.0.0 Local</p>
+        <p class="app-author">Desarrollado con Antigravity</p>
+      </div>
+    </aside>
+
+    <!-- Contenido Principal -->
+    <main class="main-content">
+      <!-- Encabezado de la página -->
+      <header class="main-header">
+        <div class="header-info">
+          <h1 id="view-title">Dashboard</h1>
+          <p id="view-subtitle" class="text-muted">Resumen financiero y estado actual de facturas</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary" id="btn-open-add-modal">
+            <i class="fa-solid fa-plus"></i> Nueva Factura
+          </button>
+        </div>
+      </header>
+
+      <!-- SECCIÓN: DASHBOARD (Inicio) -->
+      <section id="section-dashboard" class="content-section">
+        <!-- Tarjetas de Métricas -->
+        <div class="metrics-grid">
+          <div class="metric-card card-pending">
+            <div class="metric-icon">
+              <i class="fa-solid fa-hourglass-half"></i>
+            </div>
+            <div class="metric-info">
+              <span class="metric-label">Por Pagar (Este Mes)</span>
+              <h3 class="metric-value" id="metric-total-pending">$0</h3>
+              <span class="metric-sub" id="metric-count-pending">0 facturas pendientes</span>
+            </div>
+          </div>
+          <div class="metric-card card-paid">
+            <div class="metric-icon">
+              <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div class="metric-info">
+              <span class="metric-label">Pagado (Este Mes)</span>
+              <h3 class="metric-value" id="metric-total-paid">$0</h3>
+              <span class="metric-sub" id="metric-count-paid">0 facturas pagadas</span>
+            </div>
+          </div>
+          <div class="metric-card card-overdue">
+            <div class="metric-icon">
+              <i class="fa-solid fa-circle-exclamation"></i>
+            </div>
+            <div class="metric-info">
+              <span class="metric-label">Facturas Vencidas</span>
+              <h3 class="metric-value" id="metric-total-overdue">$0</h3>
+              <span class="metric-sub text-danger" id="metric-count-overdue">0 facturas vencidas</span>
+            </div>
+          </div>
+          <div class="metric-card card-next">
+            <div class="metric-icon">
+              <i class="fa-solid fa-calendar-days"></i>
+            </div>
+            <div class="metric-info">
+              <span class="metric-label">Próximo Vencimiento</span>
+              <h3 class="metric-value" id="metric-next-due-name">-</h3>
+              <span class="metric-sub" id="metric-next-due-date">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel de Gráficos e Información Rápida -->
+        <div class="dashboard-panels">
+          <div class="panel-left card">
+            <div class="card-header">
+              <h2>Distribución de Gastos</h2>
+              <p class="text-muted">Desglose mensual por categorías</p>
+            </div>
+            <div class="chart-container">
+              <canvas id="categoryChart"></canvas>
+            </div>
+          </div>
+          <div class="panel-right card">
+            <div class="card-header">
+              <h2>Facturas Próximas</h2>
+              <p class="text-muted">Ordenadas por fecha de vencimiento</p>
+            </div>
+            <div class="quick-bills-list" id="quick-bills-list">
+              <!-- Cargado dinámicamente -->
+              <p class="empty-state">Cargando facturas...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECCIÓN: FACTURAS (Listado y CRUD) -->
+      <section id="section-bills" class="content-section" style="display: none;">
+        <div class="card table-card">
+          <!-- Barra de Filtros -->
+          <div class="filters-bar">
+            <div class="search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="filter-search" placeholder="Buscar proveedor, referencia, notas...">
+            </div>
+            <div class="filters-group">
+              <select id="filter-category" class="form-select">
+                <option value="all">Todas las Categorías</option>
+                <option value="servicios">Servicios Públicos</option>
+                <option value="creditos">Créditos</option>
+                <option value="arriendos">Arriendos</option>
+                <option value="administraciones">Administraciones</option>
+              </select>
+              <select id="filter-status" class="form-select">
+                <option value="all">Todos los Estados</option>
+                <option value="pendiente">Pendientes</option>
+                <option value="pagado">Pagados</option>
+                <option value="vencido">Vencidos</option>
+              </select>
+              <select id="filter-month" class="form-select">
+                <option value="all">Todos los Meses</option>
+                <!-- Opciones de meses cargadas por JS -->
+              </select>
+            </div>
+          </div>
+
+          <!-- Tabla de Datos -->
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Factura / Proveedor</th>
+                  <th>Categoría</th>
+                  <th>Monto</th>
+                  <th>Fecha Vencimiento</th>
+                  <th>Estado</th>
+                  <th>Referencia</th>
+                  <th>Fecha Pago</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="bills-table-body">
+                <!-- Cargado dinámicamente -->
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer" id="table-footer-info">
+            Mostrando 0 facturas
+          </div>
+        </div>
+      </section>
+
+      <!-- SECCIÓN: IMPORTAR (Asistente inteligente) -->
+      <section id="section-import" class="content-section" style="display: none;">
+        <div class="import-container">
+          <div class="card import-card">
+            <div class="card-header">
+              <h2>Asistente de Importación Inteligente</h2>
+              <p class="text-muted">Pega el texto de tu factura para extraer automáticamente la información utilizando IA y heurística local.</p>
+            </div>
+            <div class="import-body">
+              <div class="paste-zone">
+                <label for="import-text" class="form-label">Texto de la Factura (Copia de tu correo, SMS, PDF o portal web):</label>
+                <textarea id="import-text" rows="10" placeholder="Ejemplo:
+Factura de servicios públicos EPM
+Contrato No: 9876543-12
+Total a pagar: $145.200 COP
+Pago oportuno antes del: 25/06/2026"></textarea>
+              </div>
+              <div class="import-actions">
+                <button class="btn btn-secondary" id="btn-clear-import">
+                  <i class="fa-solid fa-trash-can"></i> Limpiar
+                </button>
+                <button class="btn btn-primary" id="btn-process-import">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i> Analizar Factura
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card import-examples">
+            <div class="card-header">
+              <h2>¿Cómo funciona?</h2>
+            </div>
+            <div class="info-list">
+              <div class="info-item">
+                <i class="fa-solid fa-copy info-icon"></i>
+                <div class="info-content">
+                  <h4>1. Copia y Pega</h4>
+                  <p>Puedes copiar el texto completo de un correo de notificación o portal de pago y pegarlo en el cuadro superior.</p>
+                </div>
+              </div>
+              <div class="info-item">
+                <i class="fa-solid fa-robot info-icon"></i>
+                <div class="info-content">
+                  <h4>2. Extracción Inteligente</h4>
+                  <p>Nuestro algoritmo identificará automáticamente el proveedor, la fecha de vencimiento, el valor a pagar y el número de referencia.</p>
+                </div>
+              </div>
+              <div class="info-item">
+                <i class="fa-solid fa-message info-icon"></i>
+                <div class="info-content">
+                  <h4>3. También en el Chat</h4>
+                  <p>¿Prefieres enviarme un archivo o captura? Adjúntala en el chat de Antigravity y yo actualizaré la base de datos por ti en segundo plano.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECCIÓN: CONFIGURACIÓN -->
+      <section id="section-settings" class="content-section" style="display: none;">
+        <div class="settings-grid">
+          <div class="card">
+            <div class="card-header">
+              <h2>Copia de Seguridad y Datos</h2>
+              <p class="text-muted">Exporta o importa tus datos en formato JSON para no perder la información.</p>
+            </div>
+            <div class="card-body">
+              <div class="settings-actions-group">
+                <button class="btn btn-secondary" id="btn-export-data">
+                  <i class="fa-solid fa-file-export"></i> Exportar Base de Datos (JSON)
+                </button>
+                <div class="import-file-wrapper">
+                  <button class="btn btn-secondary btn-file-upload">
+                    <i class="fa-solid fa-file-import"></i> Importar Base de Datos (JSON)
+                  </button>
+                  <input type="file" id="input-import-json" accept=".json">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card card-danger-zone">
+            <div class="card-header">
+              <h2>Zona de Peligro</h2>
+              <p class="text-muted">Estas acciones borrarán o modificarán de forma permanente los registros.</p>
+            </div>
+            <div class="card-body">
+              <div class="danger-actions-group">
+                <button class="btn btn-outline-danger" id="btn-reset-db">
+                  <i class="fa-solid fa-rotate-left"></i> Restablecer a Datos de Prueba
+                </button>
+                <button class="btn btn-danger" id="btn-clear-db">
+                  <i class="fa-solid fa-trash-arrow-up"></i> Borrar Todas las Facturas
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL: AGREGAR / EDITAR FACTURA -->
+  <div class="modal-overlay" id="bill-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2 id="modal-title">Agregar Nueva Factura</h2>
+        <button class="btn-close" id="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="bill-form">
+        <input type="hidden" id="bill-id">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group col-12">
+              <label for="form-name" class="form-label">Proveedor / Concepto <span class="required">*</span></label>
+              <input type="text" id="form-name" class="form-control" required placeholder="Ej. EPM, Banco de Bogotá, Arriendo Apto">
+            </div>
+            <div class="form-group col-6">
+              <label for="form-category" class="form-label">Categoría <span class="required">*</span></label>
+              <select id="form-category" class="form-select" required>
+                <option value="servicios">Servicios Públicos</option>
+                <option value="creditos">Créditos</option>
+                <option value="arriendos">Arriendos</option>
+                <option value="administraciones">Administraciones</option>
+              </select>
+            </div>
+            <div class="form-group col-6">
+              <label for="form-amount" class="form-label">Monto (COP) <span class="required">*</span></label>
+              <input type="number" id="form-amount" class="form-control" required min="0" step="any" placeholder="Monto total a pagar">
+            </div>
+            <div class="form-group col-6">
+              <label for="form-due-date" class="form-label">Fecha de Vencimiento <span class="required">*</span></label>
+              <input type="date" id="form-due-date" class="form-control" required>
+            </div>
+            <div class="form-group col-6">
+              <label for="form-reference" class="form-label">Referencia de Pago</label>
+              <input type="text" id="form-reference" class="form-control" placeholder="Ej. Cuenta de cobro, Cédula, Convenio">
+            </div>
+            <div class="form-group col-12">
+              <label for="form-status" class="form-label">Estado de Pago <span class="required">*</span></label>
+              <div class="radio-group">
+                <label class="radio-label">
+                  <input type="radio" name="form-status" value="pendiente" checked id="status-pending">
+                  <span class="radio-custom pending">Pendiente</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" name="form-status" value="pagado" id="status-paid">
+                  <span class="radio-custom paid">Pagado</span>
+                </label>
+              </div>
+            </div>
+            
+            <!-- Campos extra que aparecen si está Pagado -->
+            <div class="form-group col-6 payment-detail-field" style="display: none;">
+              <label for="form-paid-date" class="form-label">Fecha de Pago</label>
+              <input type="date" id="form-paid-date" class="form-control">
+            </div>
+            <div class="form-group col-6 payment-detail-field" style="display: none;">
+              <label for="form-payment-code" class="form-label">Comprobante / Código TRX</label>
+              <input type="text" id="form-payment-code" class="form-control" placeholder="Ej. TRX-9982">
+            </div>
+
+            <div class="form-group col-12">
+              <label for="form-notes" class="form-label">Notas Adicionales</label>
+              <textarea id="form-notes" class="form-control" rows="3" placeholder="Información útil (enlaces de pago, banco, etc.)"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-save-bill">Guardar Factura</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIRMACIÓN DE IMPORTACIÓN INTELIGENTE -->
+  <div class="modal-overlay" id="import-confirm-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h2>Verificar Factura Extraída</h2>
+        <button class="btn-close" id="btn-close-import-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="import-confirm-form">
+        <div class="modal-body">
+          <p class="modal-description text-muted">Hemos procesado el texto de tu factura. Por favor verifica que los campos extraídos sean correctos antes de guardarla.</p>
+          <div class="form-grid">
+            <div class="form-group col-12">
+              <label for="import-name" class="form-label">Proveedor / Concepto <span class="required">*</span></label>
+              <input type="text" id="import-name" class="form-control" required>
+            </div>
+            <div class="form-group col-6">
+              <label for="import-category" class="form-label">Categoría <span class="required">*</span></label>
+              <select id="import-category" class="form-select" required>
+                <option value="servicios">Servicios Públicos</option>
+                <option value="creditos">Créditos</option>
+                <option value="arriendos">Arriendos</option>
+                <option value="administraciones">Administraciones</option>
+              </select>
+            </div>
+            <div class="form-group col-6">
+              <label for="import-amount" class="form-label">Monto (COP) <span class="required">*</span></label>
+              <input type="number" id="import-amount" class="form-control" required min="0" step="any">
+            </div>
+            <div class="form-group col-6">
+              <label for="import-due-date" class="form-label">Fecha de Vencimiento <span class="required">*</span></label>
+              <input type="date" id="import-due-date" class="form-control" required>
+            </div>
+            <div class="form-group col-6">
+              <label for="import-reference" class="form-label">Referencia de Pago</label>
+              <input type="text" id="import-reference" class="form-control">
+            </div>
+            <div class="form-group col-12">
+              <label for="import-notes" class="form-label">Notas Adicionales</label>
+              <textarea id="import-notes" class="form-control" rows="3"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-import-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Confirmar y Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Contenedor de Notificaciones (Toasts) -->
+  <div class="toast-container" id="toast-container"></div>
+</body>
+</html>
