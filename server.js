@@ -1,137 +1,187 @@
+require('dotenv').config();
 const express = require('express');
+const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_DIR = path.join(__dirname, 'data');
-const DATA_FILE = path.join(DATA_DIR, 'bills.json');
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const MONGODB_URI = process.env.MONGODB_URI;
 
 // Middleware
 app.use(express.json());
 app.use(express.static(PUBLIC_DIR));
 
-// Asegurar que el directorio de datos y el archivo existan
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// Conexión a MongoDB Atlas
+if (!MONGODB_URI) {
+  console.error("CRÍTICO: No se ha definido la variable MONGODB_URI en el entorno.");
+  process.exit(1);
 }
 
-if (!fs.existsSync(DATA_FILE)) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify([], null, 2), 'utf-8');
-}
+mongoose.connect(MONGODB_URI)
+  .then(() => {
+    console.log('Conectado exitosamente a MongoDB Atlas');
+    seedIfEmpty(); // Cargar datos iniciales si la base de datos está vacía
+  })
+  .catch(err => {
+    console.error('Error al conectar con MongoDB Atlas:', err);
+  });
 
-// Helper para leer base de datos
-const readBills = () => {
-  try {
-    const rawData = fs.readFileSync(DATA_FILE, 'utf-8');
-    return JSON.parse(rawData);
-  } catch (error) {
-    console.error('Error leyendo base de datos:', error);
-    return [];
-  }
-};
+// Esquema de Mongoose para las Facturas
+const BillSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  category: { type: String, required: true },
+  amount: { type: Number, required: true },
+  dueDate: { type: String, required: true },
+  status: { type: String, required: true },
+  reference: { type: String, default: '' },
+  paidDate: { type: String, default: null },
+  paymentCode: { type: String, default: null },
+  notes: { type: String, default: '' }
+}, {
+  timestamps: true
+});
 
-// Helper para escribir base de datos
-const writeBills = (bills) => {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(bills, null, 2), 'utf-8');
-    return true;
-  } catch (error) {
-    console.error('Error escribiendo base de datos:', error);
-    return false;
-  }
-};
-
-// Endpoints API
-
-// POST /api/bills/bulk - Sobrescribir toda la base de datos (para importación/restablecimiento)
-app.post('/api/bills/bulk', (req, res) => {
-  const newBills = Array.isArray(req.body) ? req.body : [];
-  if (writeBills(newBills)) {
-    res.json({ message: 'Base de datos cargada correctamente', count: newBills.length });
-  } else {
-    res.status(500).json({ error: 'No se pudo guardar la base de datos' });
+// Transformar el esquema al serializar a JSON para que use 'id' en lugar de '_id'
+BillSchema.set('toJSON', {
+  transform: (document, returnedObject) => {
+    returnedObject.id = returnedObject._id.toString();
+    delete returnedObject._id;
+    delete returnedObject.__v;
   }
 });
 
+const Bill = mongoose.model('Bill', BillSchema);
+
+// Función para precargar datos semilla si no hay facturas
+async function seedIfEmpty() {
+  try {
+    const count = await Bill.countDocuments({});
+    if (count === 0) {
+      console.log('Base de datos vacía. Buscando datos semilla locales...');
+      const seedFilePath = path.join(__dirname, 'data', 'bills.json');
+      if (fs.existsSync(seedFilePath)) {
+        const rawData = fs.readFileSync(seedFilePath, 'utf-8');
+        const seeds = JSON.parse(rawData);
+        if (seeds.length > 0) {
+          // Limpiar ids locales de los datos semilla para dejar que MongoDB genere los suyos
+          const cleanedSeeds = seeds.map(({ id, ...rest }) => rest);
+          await Bill.insertMany(cleanedSeeds);
+          console.log(`Cargados exitosamente ${cleanedSeeds.length} registros semilla en la nube.`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error al inicializar datos semilla:', error);
+  }
+}
+
+// ==========================================================================
+// ENDPOINTS DE LA API REST
+// ==========================================================================
+
 // GET /api/bills - Obtener todas las facturas
-app.get('/api/bills', (req, res) => {
-  const bills = readBills();
-  res.json(bills);
+app.get('/api/bills', async (req, res) => {
+  try {
+    const bills = await Bill.find({});
+    res.json(bills);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener las facturas de la base de datos' });
+  }
+});
+
+// POST /api/bills/bulk - Sobrescribir toda la base de datos (carga masiva/restablecimiento)
+app.post('/api/bills/bulk', async (req, res) => {
+  try {
+    await Bill.deleteMany({});
+    const newBills = Array.isArray(req.body) ? req.body : [];
+    
+    if (newBills.length > 0) {
+      // Limpiar id si viene del frontend, para que MongoDB use el nuevo _id
+      const cleanedBills = newBills.map(({ id, ...rest }) => rest);
+      await Bill.insertMany(cleanedBills);
+    }
+    
+    // Obtener y devolver los nuevos registros
+    const updatedBills = await Bill.find({});
+    res.json({ message: 'Base de datos cargada correctamente', count: updatedBills.length });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al restablecer la base de datos' });
+  }
 });
 
 // POST /api/bills - Crear una factura nueva
-app.post('/api/bills', (req, res) => {
-  const bills = readBills();
-  const newBill = {
-    id: `bill-${Date.now()}`,
-    name: req.body.name || 'Nueva Factura',
-    category: req.body.category || 'servicios',
-    amount: parseFloat(req.body.amount) || 0,
-    dueDate: req.body.dueDate || new Date().toISOString().split('T')[0],
-    status: req.body.status || 'pendiente',
-    reference: req.body.reference || '',
-    paidDate: req.body.paidDate || null,
-    paymentCode: req.body.paymentCode || null,
-    notes: req.body.notes || ''
-  };
+app.post('/api/bills', async (req, res) => {
+  try {
+    const newBill = new Bill({
+      name: req.body.name,
+      category: req.body.category,
+      amount: parseFloat(req.body.amount) || 0,
+      dueDate: req.body.dueDate,
+      status: req.body.status,
+      reference: req.body.reference || '',
+      paidDate: req.body.paidDate || null,
+      paymentCode: req.body.paymentCode || null,
+      notes: req.body.notes || ''
+    });
 
-  bills.push(newBill);
-  if (writeBills(bills)) {
-    res.status(201).json(newBill);
-  } else {
-    res.status(500).json({ error: 'No se pudo guardar la factura' });
+    const savedBill = await newBill.save();
+    res.status(201).json(savedBill);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al guardar la factura' });
   }
 });
 
 // PUT /api/bills/:id - Actualizar factura existente
-app.put('/api/bills/:id', (req, res) => {
-  const { id } = req.params;
-  const bills = readBills();
-  const billIndex = bills.findIndex(b => b.id === id);
+app.put('/api/bills/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = {
+      name: req.body.name,
+      category: req.body.category,
+      amount: req.body.amount !== undefined ? parseFloat(req.body.amount) : undefined,
+      dueDate: req.body.dueDate,
+      status: req.body.status,
+      reference: req.body.reference,
+      paidDate: req.body.paidDate,
+      paymentCode: req.body.paymentCode,
+      notes: req.body.notes
+    };
 
-  if (billIndex === -1) {
-    return res.status(404).json({ error: 'Factura no encontrada' });
-  }
+    // Eliminar campos indefinidos para no sobreescribir con null/undefined indeseados
+    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
 
-  const updatedBill = {
-    ...bills[billIndex],
-    name: req.body.name !== undefined ? req.body.name : bills[billIndex].name,
-    category: req.body.category !== undefined ? req.body.category : bills[billIndex].category,
-    amount: req.body.amount !== undefined ? parseFloat(req.body.amount) : bills[billIndex].amount,
-    dueDate: req.body.dueDate !== undefined ? req.body.dueDate : bills[billIndex].dueDate,
-    status: req.body.status !== undefined ? req.body.status : bills[billIndex].status,
-    reference: req.body.reference !== undefined ? req.body.reference : bills[billIndex].reference,
-    paidDate: req.body.paidDate !== undefined ? req.body.paidDate : bills[billIndex].paidDate,
-    paymentCode: req.body.paymentCode !== undefined ? req.body.paymentCode : bills[billIndex].paymentCode,
-    notes: req.body.notes !== undefined ? req.body.notes : bills[billIndex].notes
-  };
+    const updatedBill = await Bill.findByIdAndUpdate(id, updateData, { new: true });
 
-  bills[billIndex] = updatedBill;
+    if (!updatedBill) {
+      return res.status(404).json({ error: 'Factura no encontrada' });
+    }
 
-  if (writeBills(bills)) {
     res.json(updatedBill);
-  } else {
-    res.status(500).json({ error: 'No se pudo actualizar la factura' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al actualizar la factura' });
   }
 });
 
 // DELETE /api/bills/:id - Eliminar factura
-app.delete('/api/bills/:id', (req, res) => {
-  const { id } = req.params;
-  let bills = readBills();
-  const initialLength = bills.length;
-  bills = bills.filter(b => b.id !== id);
+app.delete('/api/bills/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedBill = await Bill.findByIdAndDelete(id);
 
-  if (bills.length === initialLength) {
-    return res.status(404).json({ error: 'Factura no encontrada' });
-  }
+    if (!deletedBill) {
+      return res.status(404).json({ error: 'Factura no encontrada' });
+    }
 
-  if (writeBills(bills)) {
     res.json({ message: 'Factura eliminada correctamente' });
-  } else {
-    res.status(500).json({ error: 'No se pudo eliminar la factura' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al eliminar la factura' });
   }
 });
 
