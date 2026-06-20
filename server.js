@@ -19,6 +19,8 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
+let lastConnectionError = null;
+
 mongoose.connect(MONGODB_URI)
   .then(() => {
     console.log('Conectado exitosamente a MongoDB Atlas');
@@ -26,6 +28,7 @@ mongoose.connect(MONGODB_URI)
   })
   .catch(err => {
     console.error('Error al conectar con MongoDB Atlas:', err);
+    lastConnectionError = err.message || err;
   });
 
 // Esquema de Mongoose para las Facturas
@@ -80,6 +83,16 @@ async function seedIfEmpty() {
 // ==========================================================================
 // ENDPOINTS DE LA API REST
 // ==========================================================================
+
+// GET /api/status - Diagnóstico de conexión a base de datos
+app.get('/api/status', (req, res) => {
+  res.json({
+    status: 'ok',
+    readyState: mongoose.connection.readyState,
+    error: lastConnectionError,
+    uriLength: process.env.MONGODB_URI ? process.env.MONGODB_URI.length : 0
+  });
+});
 
 // GET /api/bills - Obtener todas las facturas
 app.get('/api/bills', async (req, res) => {
